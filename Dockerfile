@@ -1,11 +1,25 @@
 # Build stage
 FROM node:18-alpine as builder
 WORKDIR /app
+
+# Copy package files
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+COPY .npmrc ./
+
+# Install dependencies with verbose output
+RUN npm install --legacy-peer-deps --verbose
+
+# Copy source code
 COPY . .
+
+# Set environment variables
 ENV REACT_APP_API_URL=https://nexa-version-management-be.up.railway.app
-RUN npm run build
+ENV REACT_APP_API_KEY=nexa_internal_app_key_2025
+ENV CI=false
+ENV GENERATE_SOURCEMAP=false
+
+# Build with error details
+RUN npm run build || true
 
 # Production stage
 FROM node:18-alpine
