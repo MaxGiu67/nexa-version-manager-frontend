@@ -2,24 +2,35 @@
 FROM node:18-alpine as builder
 WORKDIR /app
 
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
+
 # Copy package files
 COPY package*.json ./
-COPY .npmrc ./
 
-# Install dependencies with verbose output
-RUN npm install --legacy-peer-deps --verbose
+# Create npmrc
+RUN echo "legacy-peer-deps=true" > .npmrc
 
-# Copy source code
+# Install dependencies
+RUN npm install --legacy-peer-deps
+
+# Copy all source files
 COPY . .
 
-# Set environment variables
+# List files to debug
+RUN ls -la
+RUN ls -la src/
+
+# Set build environment
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 ENV REACT_APP_API_URL=https://nexa-version-management-be.up.railway.app
 ENV REACT_APP_API_KEY=nexa_internal_app_key_2025
 ENV CI=false
 ENV GENERATE_SOURCEMAP=false
+ENV SKIP_PREFLIGHT_CHECK=true
 
-# Build with error details
-RUN npm run build || true
+# Try to build and show errors
+RUN npm run build 2>&1 || (echo "Build failed with exit code $?" && exit 1)
 
 # Production stage
 FROM node:18-alpine
