@@ -2,47 +2,47 @@
 FROM node:18-alpine as builder
 WORKDIR /app
 
-# Install build dependencies
-RUN apk add --no-cache python3 make g++
-
 # Copy package files
 COPY package*.json ./
 
-# Create npmrc
-RUN echo "legacy-peer-deps=true" > .npmrc
+# Install dependencies with legacy peer deps
+RUN npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
-# Install dependencies
-RUN npm install --legacy-peer-deps
-
-# Copy all source files
+# Copy source files
 COPY . .
 
-# List files to debug
-RUN ls -la
-RUN ls -la src/
-
-# Set build environment
-ENV NODE_OPTIONS="--max-old-space-size=4096"
+# Set environment variables for build
+ENV CI=false
 ENV REACT_APP_API_URL=https://nexa-version-management-be.up.railway.app
 ENV REACT_APP_API_KEY=nexa_internal_app_key_2025
-ENV CI=false
 ENV GENERATE_SOURCEMAP=false
-ENV SKIP_PREFLIGHT_CHECK=true
 
-# Check TypeScript config
-RUN cat tsconfig.json || true
-
-# Try to build with verbose output
-RUN npm run build || true
-
-# If build fails, show more info and try again with CI=false
-RUN CI=false npm run build
+# Build the app
+RUN npm run build
 
 # Production stage
-FROM node:18-alpine
-WORKDIR /app
-RUN npm install -g serve
-COPY --from=builder /app/build ./build
-ENV PORT=3000
-EXPOSE $PORT
-CMD serve -s build -l $PORT
+FROM nginx:alpine
+WORKDIR /usr/share/nginx/html
+
+# Remove default nginx static assets
+RUN rm -rf ./*
+
+# Copy built app from builder
+COPY --from=builder /app/build .
+
+# Add nginx config for React Router
+RUN echo 'server { \
+    listen 80; \
+    location / { \
+        root /usr/share/nginx/html; \
+        index index.html index.htm; \
+        try_files $uri $uri/ /index.html; \
+    } \
+    error_page 500 502 503 504 /50x.html; \
+    location = /50x.html { \
+        root /usr/share/nginx/html; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
