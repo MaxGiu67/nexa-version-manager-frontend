@@ -29,5 +29,6 @@ RUN npm install -g serve
 # Expose port
 EXPOSE 3000
 
-# Start command - IMPORTANTE: Railway fornisce PORT dinamicamente
-CMD ["sh", "-c", "serve -s build -l 0.0.0.0:${PORT:-3000}"]
+# Start command - serve richiede solo la porta, non l'indirizzo
+# Per default serve ascolta su tutte le interfacce (0.0.0.0)
+CMD ["sh", "-c", "serve -s build -l ${PORT:-3000}"]
