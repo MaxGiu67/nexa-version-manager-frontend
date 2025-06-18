@@ -2,47 +2,36 @@
 FROM node:18-alpine as builder
 WORKDIR /app
 
-# Copy package files
+# Install dependencies first (better caching)
 COPY package*.json ./
+RUN npm install --legacy-peer-deps
 
-# Install dependencies with legacy peer deps
-RUN npm ci --legacy-peer-deps || npm install --legacy-peer-deps
-
-# Copy source files
+# Copy source code
 COPY . .
 
-# Set environment variables for build
+# Set build environment
 ENV CI=false
 ENV REACT_APP_API_URL=https://nexa-version-management-be.up.railway.app
 ENV REACT_APP_API_KEY=nexa_internal_app_key_2025
-ENV GENERATE_SOURCEMAP=false
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 # Build the app
-RUN npm run build
+RUN npm run build || (echo "Build failed. Trying alternative approach..." && \
+    GENERATE_SOURCEMAP=false CI=false npm run build)
 
-# Production stage
-FROM nginx:alpine
-WORKDIR /usr/share/nginx/html
+# Production stage - using simple serve
+FROM node:18-alpine
+WORKDIR /app
 
-# Remove default nginx static assets
-RUN rm -rf ./*
+# Install serve
+RUN npm install -g serve
 
-# Copy built app from builder
-COPY --from=builder /app/build .
+# Copy built app
+COPY --from=builder /app/build ./build
 
-# Add nginx config for React Router
-RUN echo 'server { \
-    listen 80; \
-    location / { \
-        root /usr/share/nginx/html; \
-        index index.html index.htm; \
-        try_files $uri $uri/ /index.html; \
-    } \
-    error_page 500 502 503 504 /50x.html; \
-    location = /50x.html { \
-        root /usr/share/nginx/html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+# Use Railway's PORT or default to 3000
+ENV PORT=3000
+EXPOSE $PORT
 
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# Start server
+CMD ["sh", "-c", "serve -s build -l $PORT"]
