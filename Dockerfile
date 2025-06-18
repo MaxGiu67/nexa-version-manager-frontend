@@ -2,21 +2,21 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files first
-COPY package*.json ./
-
-# Clean install dependencies
-RUN rm -rf node_modules package-lock.json && \
-    npm cache clean --force && \
-    npm install --legacy-peer-deps
-
-# Copy source files
+# Copy all files
 COPY . .
 
-# Environment variables
+# Remove any existing node_modules and package-lock
+RUN rm -rf node_modules package-lock.json
+
+# Install dependencies fresh
+RUN npm install --legacy-peer-deps --force
+
+# Fix specific dependency issues
+RUN npm install ajv@8.12.0 --save-dev --force
+
+# Set environment variables
 ENV CI=false
 ENV GENERATE_SOURCEMAP=false
-ENV TSC_COMPILE_ON_ERROR=true
 ENV REACT_APP_API_URL=https://nexa-version-management-be.up.railway.app
 ENV REACT_APP_API_KEY=nexa_internal_app_key_2025
 
@@ -26,8 +26,8 @@ RUN npm run build
 # Install serve
 RUN npm install -g serve
 
-# Use Railway's PORT
+# Expose port
 EXPOSE 3000
 
-# Start the app
-CMD ["sh", "-c", "serve -s build -l ${PORT:-3000}"]
+# Start command
+CMD ["serve", "-s", "build", "-l", "3000"]

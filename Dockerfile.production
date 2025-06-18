@@ -7,8 +7,11 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies with legacy peer deps to avoid conflicts
-RUN npm ci --legacy-peer-deps
+# Install dependencies with npm install (not ci) to handle peer deps better
+RUN npm install --legacy-peer-deps --force
+
+# Fix ajv dependency issue that occurs with react-scripts
+RUN npm install ajv@8.12.0 ajv-keywords@5.1.0 --legacy-peer-deps --force
 
 # Copy source code
 COPY . .
