@@ -29,8 +29,14 @@ ENV CI=false
 ENV GENERATE_SOURCEMAP=false
 ENV SKIP_PREFLIGHT_CHECK=true
 
-# Try to build and show errors
-RUN npm run build 2>&1 || (echo "Build failed with exit code $?" && exit 1)
+# Check TypeScript config
+RUN cat tsconfig.json || true
+
+# Try to build with verbose output
+RUN npm run build || true
+
+# If build fails, show more info and try again with CI=false
+RUN CI=false npm run build
 
 # Production stage
 FROM node:18-alpine
